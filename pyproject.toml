@@ -22,3 +22,6 @@ jarvis = "jarvis.__main__:main"
 
 [tool.setuptools]
 packages = ["jarvis"]
+
+[tool.setuptools.package-data]
+jarvis = ["recettes/*.md"]

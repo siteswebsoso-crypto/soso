@@ -29,6 +29,15 @@ class Config:
     telegram_token: str = ""
     telegram_allowed_ids: list[int] = field(default_factory=list)
     tts: bool = True
+    # Après une réponse vocale, Jarvis écoute la suite sans mot d'éveil pendant ce délai (secondes)
+    follow_up_seconds: float = 8
+    # Projets autonomes
+    projects_dir: str = "~/JarvisProjets"
+    worker_engine: str = "auto"  # auto | claude-code | builtin
+    worker_effort: str = "high"
+    worker_max_steps: int = 150
+    # Mode de permission de Claude Code : acceptEdits (commandes courantes autorisées) | auto | bypassPermissions
+    claude_code_permission_mode: str = "acceptEdits"
 
     @classmethod
     def load(cls) -> "Config":

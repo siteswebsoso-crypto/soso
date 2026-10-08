@@ -93,7 +93,7 @@ def test_agent_loop_runs_tools_and_asks_approval(store, monkeypatch):
               NS(type="tool_use", id="t2", name="run_shell", input={"command": "echo hi"})),
         _resp("end_turn", NS(type="text", text="C'est noté, Monsieur.")),
     ]
-    j = _jarvis(monkeypatch, store, responses, lambda d: asked.append(d) or False)
+    j = _jarvis(monkeypatch, store, responses, lambda d: (asked.append(d), (False, "pas maintenant"))[1])
 
     assert j.ask("Je vis à Lyon, et lance echo hi") == "C'est noté, Monsieur."
     assert asked == ["Exécuter : echo hi"]
@@ -103,6 +103,7 @@ def test_agent_loop_runs_tools_and_asks_approval(store, monkeypatch):
     results = j.messages[2]["content"]
     assert [r["tool_use_id"] for r in results] == ["t1", "t2"]
     assert results[1]["is_error"] is True and "refusé" in results[1]["content"]
+    assert "pas maintenant" in results[1]["content"]
     # Paramètres envoyés à l'API
     call = j.client.calls[0]
     assert call["model"] == "claude-opus-5-5"
@@ -115,6 +116,6 @@ def test_agent_loop_handles_unknown_tool_and_refusal(store, monkeypatch):
         _resp("tool_use", NS(type="tool_use", id="x", name="nope", input={})),
         _resp("refusal"),
     ]
-    j = _jarvis(monkeypatch, store, responses, lambda d: True)
+    j = _jarvis(monkeypatch, store, responses, lambda d: (True, ""))
     assert "pas pouvoir" in j.ask("fais un truc")
     assert j.messages[2]["content"][0]["is_error"] is True

@@ -13,7 +13,8 @@ import urllib.parse
 import urllib.request
 from typing import Callable
 
-YES = {"oui", "o", "yes", "y", "ok", "go", "vas-y", "vas y", "/oui"}
+from .channels import parse_confirmation
+
 
 
 class TelegramBot:
@@ -60,14 +61,15 @@ class TelegramBot:
                     continue
                 yield msg["chat"]["id"], text
 
-    def approver(self) -> Callable[[str], bool]:
-        def ask(description: str) -> bool:
+    def approver(self) -> Callable[[str], tuple[bool, str]]:
+        def ask(description: str) -> tuple[bool, str]:
             chat = self.last_chat
             if chat is None:
-                return False
-            self.send(chat, f"⚠️ Autorisez-vous cette action ?\n\n{description}\n\nRépondez « oui » ou « non ».")
+                return False, ""
+            self.send(chat, f"⚠️ Autorisez-vous cette action ?\n\n{description}\n\n"
+                            "Répondez « oui », « non », ou « non, mais … » pour corriger.")
             for chat_id, text in self.updates():
                 if chat_id == chat:
-                    return text.strip().lower() in YES
-            return False
+                    return parse_confirmation(text)
+            return False, ""
         return ask

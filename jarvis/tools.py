@@ -62,10 +62,16 @@ def _open_with_os(target: str) -> None:
 
 
 class Toolbox:
-    def __init__(self, store: Store):
+    def __init__(self, store: Store, playbooks=None, projects=None):
         self.store = store
+        self.playbooks = playbooks
+        self.projects = projects
         self.tools: dict[str, Tool] = {}
         self._register_all()
+        if playbooks is not None:
+            self._register_playbooks()
+        if projects is not None:
+            self._register_projects()
 
     # ------------------------------------------------------------------ registry
     def add(self, name: str, description: str, schema: dict, dangerous: bool = False):
@@ -83,6 +89,10 @@ class Toolbox:
         if name == "write_file":
             mode = "Ajouter à" if args.get("append") else "Écrire"
             return f"{mode} {args.get('path')} ({len(args.get('content', ''))} caractères)"
+        if name == "start_project":
+            recettes = ", ".join(args.get("playbooks") or []) or "aucune"
+            return (f"Lancer en autonomie le projet « {args.get('name')} » (recettes : {recettes}). "
+                    f"Demande : {args.get('brief', '')[:300]}")
         return f"{name}({args})"
 
     def run(self, name: str, args: dict) -> Any:
@@ -330,6 +340,102 @@ class Toolbox:
         )
         def cancel_reminder(id: str) -> str:
             return "Rappel annulé." if store.reminders.remove(id) else "Id introuvable."
+
+
+    def _register_playbooks(self) -> None:
+        lib = self.playbooks
+
+        @self.add(
+            "list_playbooks",
+            "Liste les recettes de l'utilisateur : ses instructions réutilisables pour un type de tâche "
+            "(ex : site full SEO, post LinkedIn, devis…).",
+            _obj({}),
+        )
+        def list_playbooks() -> str:
+            return lib.summary()
+
+        @self.add(
+            "read_playbook",
+            "Lit une recette (le nom peut être approximatif).",
+            _obj({"name": {"type": "string"}}, ["name"]),
+        )
+        def read_playbook(name: str) -> str:
+            return _clip(lib.read(name))
+
+        @self.add(
+            "save_playbook",
+            "Crée une recette, la remplace, ou la complète (append) avec de nouvelles instructions dictées "
+            "par l'utilisateur. Reformule proprement en Markdown sans rien perdre de ses consignes.",
+            _obj({
+                "name": {"type": "string"},
+                "content": {"type": "string", "description": "Instructions en Markdown"},
+                "append": {"type": "boolean", "description": "Ajouter à la recette existante"},
+            }, ["name", "content"]),
+            dangerous=True,
+        )
+        def save_playbook(name: str, content: str, append: bool = False) -> str:
+            return f"Recette « {lib.save(name, content, append)} » enregistrée."
+
+        @self.add(
+            "import_playbook",
+            "Importe une recette depuis un fichier local (.md, .txt) ou une URL publique "
+            "(Google Docs partagé, GitHub, page web, artefact Claude publié en public).",
+            _obj({"name": {"type": "string"}, "source": {"type": "string"}}, ["name", "source"]),
+        )
+        def import_playbook(name: str, source: str) -> str:
+            saved = lib.import_from(name, source)
+            preview = lib.read(saved)[:400]
+            return f"Recette « {saved} » importée ({len(lib.read(saved))} caractères). Début :\n{preview}"
+
+    def _register_projects(self) -> None:
+        pm = self.projects
+
+        @self.add(
+            "start_project",
+            "Lance une grosse tâche en autonomie, en arrière-plan (site internet, application, dossier, "
+            "étude…) : un agent la réalise de bout en bout dans un dossier dédié en suivant les recettes "
+            "indiquées, puis prévient l'utilisateur. Rassemble d'abord toutes les infos utiles dans 'brief' "
+            "(entreprise, activité, ville, contacts, couleurs, pages, ton…).",
+            _obj({
+                "name": {"type": "string", "description": "Nom court du projet, ex : Site Boulangerie Dupont"},
+                "brief": {"type": "string", "description": "Cahier des charges complet"},
+                "playbooks": {"type": "array", "items": {"type": "string"},
+                              "description": "Noms des recettes à appliquer"},
+                "engine": {"type": "string", "enum": ["auto", "claude-code", "builtin"]},
+            }, ["name", "brief"]),
+            dangerous=True,
+        )
+        def start_project(name: str, brief: str, playbooks: list[str] | None = None,
+                          engine: str | None = None) -> str:
+            project = pm.start(name, brief, playbooks or [], engine)
+            return (f"Projet {project.data['id']} lancé (moteur {project.data['engine']}) dans "
+                    f"{project.data['workspace']}. L'utilisateur sera prévenu à la fin.")
+
+        @self.add(
+            "project_status",
+            "État d'avancement d'un projet (le plus récent si aucun nom/id n'est donné).",
+            _obj({"project": {"type": "string", "description": "Nom ou id (optionnel)"}}),
+        )
+        def project_status(project: str | None = None) -> str:
+            p = pm.find(project)
+            return p.status_text() if p else "Aucun projet."
+
+        @self.add(
+            "list_projects",
+            "Liste tous les projets et leur état.",
+            _obj({}),
+        )
+        def list_projects() -> str:
+            return "\n".join(f"[{p.data['id']}] {p.data['name']} — {p.data['status']}" for p in pm.all()) \
+                or "Aucun projet."
+
+        @self.add(
+            "stop_project",
+            "Arrête un projet en cours.",
+            _obj({"project": {"type": "string"}}),
+        )
+        def stop_project(project: str | None = None) -> str:
+            return pm.stop(project)
 
 
 def desktop_notify(title: str, message: str) -> None:

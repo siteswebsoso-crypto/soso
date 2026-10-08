@@ -16,11 +16,13 @@ from .tools import Toolbox
 
 MAX_STEPS = 25
 
-Approver = Callable[[str], bool]
+# Reçoit la description de l'action, renvoie (approuvé, remarque éventuelle de l'utilisateur)
+Approver = Callable[[str], "tuple[bool, str]"]
 TextSink = Callable[[str], None]
 
 
-def build_system_prompt(cfg: Config, store: Store) -> str:
+def build_system_prompt(cfg: Config, store: Store, playbooks=None) -> str:
+    recipes = playbooks.summary() if playbooks is not None else "(désactivées)"
     memories = "\n".join(f"- [{m['id']}] {m['fact']}" for m in store.memories.all()) or "(rien pour l'instant)"
     return f"""Tu es J.A.R.V.I.S., l'assistant personnel de {cfg.user_name}. Tu tournes directement \
 sur son ordinateur ({platform.system()} {platform.release()}, dossier perso : {Path.home()}) et tu \
@@ -41,16 +43,34 @@ refuse, n'insiste pas et propose une alternative.
 mémorise-la avec `remember`.
 - Chaque message de l'utilisateur commence par la date et l'heure locales entre crochets ; \
 utilise-les pour les rappels et les questions de temps.
+- L'utilisateur te parle souvent à la voix : la transcription peut contenir des fautes ou des noms \
+mal reconnus ; interprète intelligemment et, en cas de doute réel, demande une précision courte.
+
+Grosses tâches (site internet, application, dossier, étude…) :
+1. Repère les recettes pertinentes (les instructions que l'utilisateur a préparées pour ce type de \
+tâche) et lis-les avec `read_playbook`. Si l'utilisateur en nomme une (« utilise la recette site SEO »), \
+utilise-la.
+2. Rassemble les infos nécessaires : ce qu'il t'a dit, ta mémoire, une recherche web sur l'entreprise. \
+Ne pose une question que si une info indispensable manque vraiment.
+3. Appelle `start_project` avec un cahier des charges complet : l'utilisateur valide ou corrige à la voix.
+4. Ensuite tout se fait en autonomie ; donne l'avancement avec `project_status` quand on te le demande.
+Quand l'utilisateur te dicte des consignes à garder pour la suite (« retiens pour les sites : … »), \
+enregistre-les dans une recette avec `save_playbook`.
+
+Recettes disponibles :
+{recipes}
 
 Ce que tu sais déjà de {cfg.user_name} :
 {memories}"""
 
 
 class Jarvis:
-    def __init__(self, cfg: Config, store: Store, approver: Approver, on_text: TextSink | None = None):
+    def __init__(self, cfg: Config, store: Store, approver: Approver, on_text: TextSink | None = None,
+                 playbooks=None, projects=None):
         self.cfg = cfg
         self.store = store
-        self.toolbox = Toolbox(store)
+        self.playbooks = playbooks
+        self.toolbox = Toolbox(store, playbooks, projects)
         self.approver = approver
         self.on_text = on_text
         self.client = anthropic.Anthropic()
@@ -61,7 +81,7 @@ class Jarvis:
     def reset(self) -> None:
         """Nouvelle conversation (recharge aussi la mémoire dans le prompt système)."""
         self.messages = []
-        self.system = build_system_prompt(self.cfg, self.store)
+        self.system = build_system_prompt(self.cfg, self.store, self.playbooks)
         self.tools = self.toolbox.definitions()
         if self.cfg.web_search:
             self.tools.append({"type": "web_search_20260209", "name": "web_search"})
@@ -123,13 +143,23 @@ class Jarvis:
                 continue
             args = block.input if isinstance(block.input, dict) else {}
             tool = self.toolbox.tools.get(block.name)
+            remark = ""
             try:
                 if tool and tool.dangerous and not self.cfg.auto_approve:
-                    if not self.approver(self.toolbox.describe_call(block.name, args)):
-                        results.append(_result(block.id, "L'utilisateur a refusé cette action.", error=True))
+                    approved, remark = self.approver(self.toolbox.describe_call(block.name, args))
+                    if not approved:
+                        msg = "L'utilisateur a refusé cette action."
+                        if remark:
+                            msg += f" Il a dit : « {remark} ». Tiens-en compte (corrige puis repropose si besoin)."
+                        results.append(_result(block.id, msg, error=True))
                         continue
+                if remark and block.name == "start_project":
+                    args = {**args, "brief": f"{args.get('brief', '')}\n\nPrécision donnée à la validation : {remark}"}
                 output = self.toolbox.run(block.name, args)
-                results.append(_result(block.id, output if isinstance(output, list) else str(output)))
+                output = output if isinstance(output, list) else str(output)
+                if remark and isinstance(output, str):
+                    output += f"\n(Remarque de l'utilisateur en validant : « {remark} »)"
+                results.append(_result(block.id, output))
             except Exception as exc:  # noqa: BLE001 - l'erreur est renvoyée à Claude
                 results.append(_result(block.id, f"Erreur : {type(exc).__name__}: {exc}", error=True))
         return results
