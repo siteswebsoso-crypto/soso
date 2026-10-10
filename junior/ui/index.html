@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jarvis Junior</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+
+<!-- 1. Choix du profil -->
+<section id="screen-profiles" class="screen active">
+  <header class="hello">
+    <div class="mini-bot" aria-hidden="true"><span></span><span></span></div>
+    <h1 id="hello-title">Coucou !</h1>
+    <p>Qui fait ses devoirs ?</p>
+  </header>
+  <div id="profiles" class="profiles"></div>
+  <button id="parent-btn" class="ghost-btn parent-btn" title="Espace parents">🔒 Espace parents</button>
+</section>
+
+<!-- 2. Code secret -->
+<section id="screen-pin" class="screen">
+  <button class="back-btn" data-back>‹ Retour</button>
+  <div class="pin-box">
+    <div id="pin-avatar" class="avatar big"></div>
+    <h2 id="pin-title">Ton code secret</h2>
+    <div id="pin-dots" class="pin-dots"><i></i><i></i><i></i><i></i></div>
+    <div id="pin-pad" class="pin-pad"></div>
+  </div>
+</section>
+
+<!-- 3. Séance -->
+<section id="screen-session" class="screen">
+  <header class="topbar">
+    <div class="who"><div id="s-avatar" class="avatar small"></div><strong id="s-name"></strong></div>
+    <div class="progress-wrap">
+      <div class="progress"><div id="s-progress"></div></div>
+      <span id="s-progress-label"></span>
+    </div>
+    <div class="chip" id="s-timer">⏱ 0 min</div>
+    <button id="quit-btn" class="ghost-btn">J'arrête</button>
+  </header>
+
+  <main class="stage">
+    <div class="center">
+      <button id="orb" class="orb" data-state="thinking" aria-label="Parler à Jarvis">
+        <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
+        <svg class="bot" viewBox="0 0 200 200" aria-hidden="true">
+          <defs>
+            <linearGradient id="head" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe3ff"/>
+            </linearGradient>
+          </defs>
+          <line x1="100" y1="32" x2="100" y2="52" stroke="#c9cdf5" stroke-width="6" stroke-linecap="round"/>
+          <circle class="antenna" cx="100" cy="26" r="9"/>
+          <rect x="34" y="50" width="132" height="112" rx="44" fill="url(#head)"/>
+          <rect x="50" y="70" width="100" height="62" rx="28" fill="#20194d"/>
+          <g class="eyes">
+            <ellipse class="eye" cx="80" cy="99" rx="9" ry="12"/>
+            <ellipse class="eye" cx="120" cy="99" rx="9" ry="12"/>
+          </g>
+          <rect class="mouth" x="88" y="118" width="24" height="6" rx="3"/>
+          <circle cx="48" cy="140" r="7" fill="#ffb3c7" opacity=".7"/>
+          <circle cx="152" cy="140" r="7" fill="#ffb3c7" opacity=".7"/>
+        </svg>
+      </button>
+      <p id="status" class="status">Jarvis se prépare…</p>
+      <p id="subtitle" class="subtitle"></p>
+      <p id="heard" class="heard"></p>
+    </div>
+
+    <aside class="side">
+      <div id="screen-card" class="screen-card hidden">
+        <div class="screen-card-title" id="sc-title"></div>
+        <div class="screen-card-content" id="sc-content"></div>
+      </div>
+      <h3>Mes devoirs</h3>
+      <ul id="hw-list" class="hw-list"></ul>
+    </aside>
+  </main>
+
+  <form id="type-form" class="type-form" autocomplete="off">
+    <input id="type-input" placeholder="Écrire à Jarvis (si le micro ne marche pas)…">
+    <button>Envoyer</button>
+  </form>
+</section>
+
+<!-- Pause -->
+<div id="break" class="overlay hidden">
+  <div class="modal break">
+    <div class="break-emoji">🧃</div>
+    <h2>C'est la pause !</h2>
+    <p>Bois un verre d'eau, étire-toi, respire un grand coup.</p>
+    <div id="break-timer" class="break-timer">5:00</div>
+    <button id="break-done" class="big-btn">Je suis de retour !</button>
+  </div>
+</div>
+
+<!-- Fin -->
+<div id="end" class="overlay hidden">
+  <canvas id="confetti"></canvas>
+  <div class="modal end">
+    <div class="end-emoji">🏆</div>
+    <h2 id="end-title">Bravo !</h2>
+    <p id="end-text">Tes parents ont reçu le bilan de ta séance.</p>
+    <button id="end-done" class="big-btn">Terminer</button>
+  </div>
+</div>
+
+<!-- Confirmation de sortie -->
+<div id="confirm" class="overlay hidden">
+  <div class="modal">
+    <h2>Tu veux vraiment arrêter ?</h2>
+    <p>Jarvis enverra à tes parents ce que tu as déjà fait.</p>
+    <div class="row">
+      <button id="confirm-no" class="big-btn">Non, je continue</button>
+      <button id="confirm-yes" class="ghost-btn">Oui, j'arrête</button>
+    </div>
+  </div>
+</div>
+
+<!-- Espace parents -->
+<section id="screen-parent" class="screen">
+  <button class="back-btn" id="parent-back">‹ Quitter l'espace parents</button>
+  <div class="parent-panel">
+    <h2>Espace parents</h2>
+    <nav class="tabs">
+      <button class="tab active" data-tab="hw">Devoirs en cours</button>
+      <button class="tab" data-tab="reports">Rapports</button>
+    </nav>
+    <div id="tab-hw" class="tab-body">
+      <form id="add-form" class="add-form">
+        <select id="add-child"></select>
+        <input id="add-subject" placeholder="Matière" required>
+        <input id="add-task" placeholder="Consigne (ex : exercices 3 et 4 page 52)" required>
+        <input id="add-due" type="date">
+        <input id="add-min" type="number" min="5" max="120" value="15" title="Durée (min)">
+        <button>Ajouter</button>
+      </form>
+      <table class="hw-table"><tbody id="parent-hw"></tbody></table>
+    </div>
+    <div id="tab-reports" class="tab-body hidden"></div>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

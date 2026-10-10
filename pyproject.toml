@@ -16,12 +16,21 @@ voice = ["SpeechRecognition>=3.10", "pyttsx3>=2.90", "PyAudio>=0.2.14"]
 desktop = ["pyperclip>=1.8", "plyer>=2.1", "Pillow>=10", "psutil>=5.9"]
 all = ["jarvis-assistant[voice,desktop]"]
 dev = ["pytest>=8"]
+# Jarvis Junior (Mac) : fenêtre native, micro, reconnaissance vocale locale
+junior = [
+    "pywebview>=5",
+    "sounddevice>=0.4",
+    "numpy>=1.26",
+    "mlx-whisper>=0.4; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "faster-whisper>=1.0; sys_platform != 'darwin' or platform_machine != 'arm64'",
+]
 
 [project.scripts]
 jarvis = "jarvis.__main__:main"
 
 [tool.setuptools]
-packages = ["jarvis"]
+packages = ["jarvis", "junior"]
 
 [tool.setuptools.package-data]
 jarvis = ["recettes/*.md"]
+junior = ["ui/*", "assets/*"]

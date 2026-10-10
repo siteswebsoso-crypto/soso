@@ -1,5 +1,7 @@
 # J.A.R.V.I.S. — votre assistant personnel propulsé par Claude
 
+> 👦 **Jarvis Junior**, l'instit vocal des devoirs pour les enfants (Mac) : voir [JARVIS_JUNIOR.md](JARVIS_JUNIOR.md).
+
 Jarvis tourne **sur votre ordinateur** et **agit** dessus à votre place : il lance des commandes,
 ouvre des applications, gère vos fichiers, prend des captures d'écran pour voir ce que vous voyez,
 retient vos préférences, programme des rappels et cherche sur le web. Vous lui parlez **au clavier**,
