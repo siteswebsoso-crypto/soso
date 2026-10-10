@@ -35,6 +35,7 @@ function greeting() {
 
 /* ---------------------------------------------------------------- profils */
 async function loadProfiles() {
+  if (api.refresh) await api.refresh(); // derniers devoirs envoyés par les parents
   profiles = await api.profiles();
   $("#hello-title").textContent = greeting();
   const box = $("#profiles");

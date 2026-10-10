@@ -9,10 +9,8 @@ import pytest
 
 from junior.app import Api, Controller
 from junior.config import Config
-from junior.daemon import Daemon
 from junior.data import DONE, PARTIAL, Store, human_date, next_school_day
 from junior.homework import save_extraction
-from junior.parent_agent import ParentAgent
 from junior.report import build_report
 from junior.tutor import TutorSession
 
@@ -22,8 +20,8 @@ THURSDAY = date(2026, 10, 8)
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     monkeypatch.setenv("JUNIOR_HOME", str(tmp_path))
-    monkeypatch.delenv("JUNIOR_TELEGRAM_TOKEN", raising=False)
-    cfg = Config(parent_ids=[111, 222], parent_names={"111": "Papa", "222": "Maman"})
+    monkeypatch.delenv("JUNIOR_CLOUD_TOKEN", raising=False)
+    cfg = Config()
     cfg.children[0].set_pin("1234")
     store = Store(tmp_path)
     return NS(cfg=cfg, store=store, tmp=tmp_path)
@@ -128,9 +126,9 @@ def test_save_extraction_and_unknown_dates(env):
 # ------------------------------------------------------------------ séance
 
 def test_tutor_full_session(env, monkeypatch):
-    sent = []
-    monkeypatch.setattr("junior.report.get_secret", lambda name: "TOKEN")
-    monkeypatch.setattr("junior.report.Telegram", lambda token: NS(send=lambda chat, text: sent.append((chat, text))))
+    synced = []
+    monkeypatch.setattr("junior.cloud.Cloud.configured", property(lambda self: True))
+    monkeypatch.setattr("junior.cloud.Cloud.sync_in_background", lambda self: synced.append(True))
     s = env.store
     maths = s.add_homework("amine", "Mathématiques", "ex 3 et 4 p 52", "2026-10-09", 20)
     poesie = s.add_homework("amine", "Français", "poésie strophe 1", "2026-10-09", 15)
@@ -165,10 +163,12 @@ def test_tutor_full_session(env, monkeypatch):
     session.reply("c'est fini pour ce soir")
 
     assert session.ended
-    assert ui.events[-1][0] == "ended" and ui.events[-1][1]["parents_notified"] == 2
-    assert [c for c, _ in sent] == [111, 222]
-    report = sent[0][1]
-    assert "Rapport de devoirs — Amine" in report
+    assert ui.events[-1][0] == "ended" and ui.events[-1][1]["parents_notified"] is True
+    assert synced == [True]  # envoi immédiat vers l'espace parents
+    stored = s.reports.all()[0]
+    assert stored["synced"] is False
+    report = stored["text"]
+    assert report.startswith("⏸️ Amine a arrêté la séance")
     assert "✔︎ Mathématiques" in report and "◐ Français" in report
     assert "fractions" in report and "revoir la poésie" in report
     assert s.reports.all()[0]["child"] == "amine"
@@ -286,68 +286,3 @@ def test_api_login_and_parent_space(env):
     assert len(api.parent_data()["homework"]) == 2
 
 
-# ------------------------------------------------------------------ Telegram (parents)
-
-class FakeTelegram:
-    def __init__(self, tmp):
-        self.sent, self.tmp = [], tmp
-
-    def send(self, chat, text):
-        self.sent.append((chat, text))
-
-    def typing(self, chat):
-        pass
-
-    def updates(self, offset, timeout=30):
-        return []
-
-    def download(self, file_id, dest):
-        p = Path(str(dest) + ".jpg")
-        p.write_bytes(b"\xff\xd8fake")
-        return p
-
-
-def test_daemon_photo_to_homework(env, monkeypatch):
-    extraction = {"child": "inconnu", "confidence": "incertain", "remarks": "", "items": [
-        {"subject": "Maths", "task": "ex 5 p 20", "due": "2026-10-09", "minutes": 20, "kind": "exercice"}]}
-    monkeypatch.setattr("junior.daemon.extract_homework", lambda client, cfg, paths, caption: dict(
-        extraction, child="amine" if "amine" in caption.lower() else "inconnu"))
-    tg = FakeTelegram(env.tmp)
-    d = Daemon(env.cfg, env.store, tg, client=None)
-    photo = lambda uid, caption="": {"update_id": 1, "message": {
-        "message_id": 9, "chat": {"id": uid}, "from": {"id": uid, "first_name": "X"},
-        "photo": [{"file_id": "small"}, {"file_id": "big"}], "caption": caption}}
-
-    d.process([photo(111, "Amine")])
-    assert env.store.pending("amine")[0]["task"] == "ex 5 p 20"
-    to_sender = [t for c, t in tg.sent if c == 111][0]
-    assert "pour Amine" in to_sender and "~20 min" in to_sender
-    assert any(c == 222 and "Papa a envoyé les devoirs d'Amine" in t for c, t in tg.sent)  # l'autre parent
-
-    tg.sent.clear()
-    d.process([photo(111)])  # sans légende et enfant introuvable : on demande
-    assert "C'est pour Amine ou Ibrahim ?" in tg.sent[0][1]
-    assert env.store.pending("inconnu")
-
-    tg.sent.clear()
-    d.process([{"update_id": 3, "message": {"message_id": 1, "chat": {"id": 999}, "from": {"id": 999},
-                                             "text": "coucou"}}])
-    assert "réservé aux parents" in tg.sent[0][1]
-
-
-def test_parent_agent_corrects_homework(env):
-    h = env.store.add_homework("inconnu", "Maths", "ex 5", None, 20)
-    client = FakeClient([
-        turn("", [("update_homework", {"id": h["id"], "child": "ibrahim", "due": "2026-10-13"}),
-                  ("add_note", {"child": "ibrahim", "text": "contrôle d'histoire jeudi"})]),
-        turn("C'est corrigé : le devoir est pour Ibrahim, pour mardi."),
-    ])
-    agent = ParentAgent(env.cfg, env.store, client)
-    reply = agent.handle(111, "Papa", "c'est pour Ibrahim, pour mardi. Et il a un contrôle d'histoire jeudi",
-                         context="je viens d'enregistrer depuis une photo : ...")
-    assert reply.startswith("C'est corrigé")
-    item = env.store.pending("ibrahim")[0]
-    assert item["due"] == "2026-10-13"
-    assert env.store.active_notes("ibrahim")[0]["author"] == "Papa"
-    first_user = client.calls[0]["messages"][0]["content"][0]["text"]
-    assert "message de Papa" in first_user and "Contexte" in first_user

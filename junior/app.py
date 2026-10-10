@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 from .audio import Recorder, Speaker, Transcriber
+from .cloud import Cloud
 from .config import Config, app_dir
 from .data import DONE, Store, human_date
 from .llm import client as make_client
@@ -170,6 +171,17 @@ class Api:
         self.window = None
         self.controller = Controller(cfg, store, self._emit)
         self.parent_ok = False
+        self.cloud = Cloud(cfg, store)
+        self._last_sync = 0.0
+
+    def refresh(self) -> dict:
+        """Récupère les derniers devoirs envoyés par les parents (au plus une fois toutes les 20 s)."""
+        if time.time() - self._last_sync > 20:
+            self._last_sync = time.time()
+            worker = threading.Thread(target=self.cloud.sync_quietly, daemon=True)
+            worker.start()
+            worker.join(timeout=4)  # on n'attend pas plus si le site est lent
+        return {"online": self.cloud.configured}
 
     def _emit(self, kind: str, **data) -> None:
         if self.window:
@@ -227,7 +239,7 @@ class Api:
         return True
 
     def parent_delete(self, hw_id: str) -> bool:
-        return self.parent_ok and self.store.homework.remove(hw_id)
+        return self.parent_ok and self.store.delete_homework(hw_id)
 
     def parent_logout(self) -> None:
         self.parent_ok = False

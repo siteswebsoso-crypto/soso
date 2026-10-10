@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jarvis Junior — Parents</title>
+<meta name="description" content="Espace parents de Jarvis Junior : devoirs, rapports et consignes.">
+<meta name="theme-color" content="#5b3df5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Jarvis Parents">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<!-- Connexion -->
+<section id="login" class="login hidden">
+  <img src="/icons/icon-192.png" alt="" class="login-logo">
+  <h1>Jarvis Junior</h1>
+  <p class="muted">Espace parents</p>
+  <form id="login-form" class="card login-card">
+    <label>Vous êtes</label>
+    <div class="chips" id="name-chips">
+      <button type="button" class="chip" data-name="Papa">Papa</button>
+      <button type="button" class="chip" data-name="Maman">Maman</button>
+    </div>
+    <input id="login-name" placeholder="ou votre prénom" autocomplete="nickname">
+    <label for="login-pass">Mot de passe familial</label>
+    <input id="login-pass" type="password" autocomplete="current-password" required>
+    <p id="login-error" class="error"></p>
+    <button class="btn primary">Se connecter</button>
+  </form>
+</section>
+
+<!-- Application -->
+<div id="app" class="hidden">
+  <header class="top">
+    <div>
+      <h1 id="hello">Bonjour</h1>
+      <p class="muted small" id="mac-status"><span class="dot"></span> Mac : …</p>
+    </div>
+    <img src="/icons/icon-192.png" alt="" class="top-logo">
+  </header>
+
+  <main>
+    <!-- Devoirs -->
+    <section id="tab-devoirs" class="tab">
+      <button id="send-photo" class="btn primary big">📷 Envoyer les devoirs</button>
+      <div id="jobs"></div>
+      <div class="segmented" id="child-filter"></div>
+      <div id="homework-list"></div>
+      <button id="add-manual" class="btn ghost">＋ Ajouter un devoir à la main</button>
+    </section>
+
+    <!-- Rapports -->
+    <section id="tab-rapports" class="tab hidden">
+      <h2>Rapports de séance</h2>
+      <div class="segmented" id="report-filter"></div>
+      <div id="reports"></div>
+    </section>
+
+    <!-- Consignes -->
+    <section id="tab-consignes" class="tab hidden">
+      <h2>Consignes pour Jarvis</h2>
+      <p class="muted">Jarvis en tient compte aux prochaines séances (« insiste sur les tables de 7 », « contrôle d'histoire jeudi »…).</p>
+      <form id="note-form" class="card">
+        <select id="note-child"></select>
+        <textarea id="note-text" rows="3" placeholder="Votre consigne…" required></textarea>
+        <button class="btn primary">Ajouter la consigne</button>
+      </form>
+      <div id="notes"></div>
+      <h2>Difficultés repérées</h2>
+      <div id="difficulties"></div>
+    </section>
+
+    <!-- Réglages -->
+    <section id="tab-reglages" class="tab hidden">
+      <h2>Réglages</h2>
+      <div class="card">
+        <h3>🔔 Notifications</h3>
+        <p class="muted" id="push-status">…</p>
+        <p class="hint hidden" id="ios-hint">Sur iPhone : touchez <b>Partager</b> <span aria-hidden="true">⎋</span> puis <b>« Sur l'écran d'accueil »</b>, et ouvrez Jarvis Parents depuis la nouvelle icône pour activer les notifications.</p>
+        <button id="push-enable" class="btn primary">Activer les notifications</button>
+        <button id="push-test" class="btn ghost hidden">Envoyer une notification de test</button>
+      </div>
+      <div class="card">
+        <h3>💻 Le Mac</h3>
+        <p class="muted" id="mac-detail">…</p>
+      </div>
+      <div class="card">
+        <h3>👤 Compte</h3>
+        <p class="muted" id="me-detail"></p>
+        <button id="logout" class="btn ghost danger">Se déconnecter</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-tab="devoirs" class="active"><span>📚</span>Devoirs</button>
+    <button data-tab="rapports"><span>📝</span>Rapports</button>
+    <button data-tab="consignes"><span>💬</span>Consignes</button>
+    <button data-tab="reglages"><span>⚙️</span>Réglages</button>
+  </nav>
+</div>
+
+<!-- Feuille : envoi de photo -->
+<dialog id="photo-sheet" class="sheet">
+  <form method="dialog" id="photo-form">
+    <h2>Envoyer les devoirs</h2>
+    <label>Pour qui ?</label>
+    <div class="segmented" id="photo-child"></div>
+    <label class="drop" id="drop">
+      <input type="file" id="photo-input" accept="image/*" multiple hidden>
+      <span id="drop-label">📸 Prendre ou choisir des photos</span>
+    </label>
+    <div id="previews" class="previews"></div>
+    <input id="photo-caption" placeholder="Précision (facultatif) : « pour jeudi », « seulement la page 2 »…">
+    <menu>
+      <button value="cancel" class="btn ghost" formnovalidate>Annuler</button>
+      <button id="photo-send" class="btn primary" value="send" disabled>Envoyer</button>
+    </menu>
+  </form>
+</dialog>
+
+<!-- Feuille : modifier un devoir -->
+<dialog id="edit-sheet" class="sheet">
+  <form method="dialog" id="edit-form">
+    <h2 id="edit-title">Devoir</h2>
+    <label for="e-child">Enfant</label><select id="e-child"></select>
+    <label for="e-subject">Matière</label><input id="e-subject" required>
+    <label for="e-task">Consigne</label><textarea id="e-task" rows="3" required></textarea>
+    <div class="row2">
+      <div><label for="e-due">Pour le</label><input id="e-due" type="date"></div>
+      <div><label for="e-min">Durée (min)</label><input id="e-min" type="number" min="1" max="240"></div>
+    </div>
+    <label for="e-status">État</label>
+    <select id="e-status"><option>à faire</option><option>partiel</option><option>fait</option></select>
+    <img id="e-photo" class="edit-photo hidden" alt="Photo d'origine">
+    <menu>
+      <button id="e-delete" type="button" class="btn ghost danger">Supprimer</button>
+      <button value="cancel" class="btn ghost" formnovalidate>Annuler</button>
+      <button value="save" class="btn primary">Enregistrer</button>
+    </menu>
+  </form>
+</dialog>
+
+<div id="toast" class="toast"></div>
+<script src="/app.js" type="module"></script>
+</body>
+</html>

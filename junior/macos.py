@@ -79,7 +79,7 @@ def desktop_alias(app: Path) -> None:
 
 
 def install_daemon(python: str | None = None) -> Path:
-    """Installe et démarre le service Telegram (relancé automatiquement, même après redémarrage)."""
+    """Installe et démarre la synchronisation avec l'espace parents (relancée automatiquement, même après redémarrage)."""
     python = python or sys.executable
     plist = Path.home() / "Library" / "LaunchAgents" / f"{AGENT_LABEL}.plist"
     plist.parent.mkdir(parents=True, exist_ok=True)

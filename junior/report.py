@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from .config import Child, Config, get_secret
+from .config import Child, Config
 from .data import DONE, PARTIAL, Store, now_iso
-from .telegram_api import Telegram
 
 
 def build_report(child: Child, minutes: int, homework: list[dict], summary: str,
@@ -34,18 +33,17 @@ def build_report(child: Child, minutes: int, homework: list[dict], summary: str,
     return "\n".join(lines)
 
 
-def send_report(cfg: Config, store: Store, child: Child, text: str) -> int:
-    """Enregistre le rapport et l'envoie aux parents. Renvoie le nombre de parents prévenus."""
-    store.reports.add({"child": child.id, "date": now_iso(), "text": text})
-    token = get_secret("telegram")
-    if not token or not cfg.parent_ids:
-        return 0
-    tg = Telegram(token)
-    sent = 0
-    for chat_id in cfg.parent_ids:
-        try:
-            tg.send(chat_id, f"📚 Rapport de devoirs — {child.name}\n\n{text}")
-            sent += 1
-        except Exception as exc:  # noqa: BLE001
-            print(f"[rapport] envoi à {chat_id} impossible : {exc}")
-    return sent
+def send_report(cfg: Config, store: Store, child: Child, text: str) -> bool:
+    """Enregistre le rapport et l'envoie à l'espace parents (les deux parents reçoivent une notification).
+
+    Si le site est injoignable, le rapport part à la synchronisation suivante. Renvoie True si l'envoi
+    est prévu (espace parents configuré).
+    """
+    from .cloud import Cloud
+
+    store.reports.add({"child": child.id, "date": now_iso(), "text": text, "synced": False})
+    cloud = Cloud(cfg, store)
+    if not cloud.configured:
+        return False
+    cloud.sync_in_background()
+    return True

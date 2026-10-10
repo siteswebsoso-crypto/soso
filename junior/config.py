@@ -71,9 +71,8 @@ DEFAULT_CHILDREN = [
 @dataclass
 class Config:
     children: list[Child] = field(default_factory=lambda: [Child(**asdict(c)) for c in DEFAULT_CHILDREN])
-    # Identifiants Telegram des parents (reçoivent les rapports, envoient les devoirs)
-    parent_ids: list[int] = field(default_factory=list)
-    parent_names: dict[str, str] = field(default_factory=dict)
+    # Adresse de l'espace parents (site Netlify), ex : https://jarvis-famille.netlify.app
+    cloud_url: str = ""
     parent_pin_hash: str = ""
     parent_pin_salt: str = ""
     model: str = "claude-opus-5-5"
@@ -122,7 +121,7 @@ class Config:
 
 def get_secret(name: str) -> str:
     """Lit un secret : variable d'environnement, sinon Trousseau macOS, sinon fichier local protégé."""
-    env = {"anthropic": "ANTHROPIC_API_KEY", "telegram": "JUNIOR_TELEGRAM_TOKEN"}[name]
+    env = {"anthropic": "ANTHROPIC_API_KEY", "cloud": "JUNIOR_CLOUD_TOKEN"}[name]
     if os.environ.get(env):
         return os.environ[env]
     if platform.system() == "Darwin":

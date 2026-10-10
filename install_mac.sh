@@ -49,3 +49,4 @@ EOF
 echo
 echo "🎉 C'est prêt ! L'icône « Jarvis Junior » est sur le bureau."
 echo "   Au premier lancement, autorisez l'accès au micro."
+echo "   Sur vos téléphones : ouvrez l'adresse de l'espace parents et ajoutez-le à l'écran d'accueil."

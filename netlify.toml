@@ -1,0 +1,15 @@
+# Espace parents de Jarvis Junior — déployé sur Netlify depuis ce dépôt.
+[build]
+  base = "parents"
+  publish = "public"
+  functions = "functions"
+  command = "echo 'site statique + fonctions'"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"

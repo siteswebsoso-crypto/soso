@@ -1,0 +1,14 @@
+{
+  "name": "jarvis-junior-parents",
+  "private": true,
+  "type": "module",
+  "description": "Espace parents de Jarvis Junior (Netlify)",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@netlify/blobs": "^11.1.4",
+    "web-push": "^3.6.7"
+  }
+}

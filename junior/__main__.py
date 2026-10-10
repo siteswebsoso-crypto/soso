@@ -1,8 +1,8 @@
 """Jarvis Junior — l'instit vocal des devoirs.
 
     python -m junior app        l'application des enfants (par défaut)
-    python -m junior daemon     le service Telegram (photos de devoirs, rapports, consignes)
-    python -m junior setup      configuration (clés, parents, codes, voix)
+    python -m junior daemon     la synchronisation avec l'espace parents (devoirs, consignes, rapports)
+    python -m junior setup      configuration (clé Claude, espace parents, codes, voix)
     python -m junior install    crée l'app avec son icône sur le bureau + démarrage auto du service
     python -m junior uninstall  retire l'app et le service
 """

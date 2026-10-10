@@ -1,4 +1,4 @@
-"""Assistant de configuration (à lancer une fois) : clés, parents Telegram, codes, voix."""
+"""Assistant de configuration (à lancer une fois) : clé Claude, espace parents, codes, voix."""
 
 from __future__ import annotations
 
@@ -7,8 +7,9 @@ import platform
 import subprocess
 import time
 
-from .config import Config, get_secret, set_secret
-from .telegram_api import Telegram
+from .cloud import Cloud, CloudError
+from .config import Config, app_dir, get_secret, set_secret
+from .data import Store
 
 AVATARS = ["🦁", "🚀", "🦊", "🐼", "🐯", "🦄", "🐸", "⚽", "🎮", "🐉", "🦖", "🌟"]
 
@@ -37,43 +38,27 @@ def step_api_key() -> None:
         print("  ✓ Clé enregistrée dans le Trousseau.")
 
 
-def step_telegram(cfg: Config) -> None:
-    print("\n② Bot Telegram des parents")
-    print("  Sur Telegram, ouvrez @BotFather → /newbot → choisissez un nom (ex : Jarvis Junior Maison).")
-    token = get_secret("telegram")
-    if token and ask("Un bot est déjà configuré. Le changer ? (o/N)", "n").lower() != "o":
-        pass
-    else:
-        token = getpass.getpass("  Collez le token donné par BotFather : ").strip()
-        if not token:
-            print("  (ignoré : pas de Telegram)")
+def step_cloud(cfg: Config) -> None:
+    print("\n② Espace parents (site Netlify)")
+    print("  Il doit déjà être en ligne (voir JARVIS_JUNIOR.md, « Mettre en ligne l'espace parents »).")
+    url = ask("  Adresse du site (ex : https://jarvis-famille.netlify.app)", cfg.cloud_url).strip().rstrip("/")
+    if not url:
+        print("  (ignoré : les rapports resteront sur le Mac)")
+        return
+    if not url.startswith("http"):
+        url = "https://" + url
+    cfg.cloud_url = url
+    cloud = Cloud(cfg, Store(app_dir()))
+    for _ in range(3):
+        password = getpass.getpass("  Mot de passe familial (celui choisi sur Netlify) : ").strip()
+        try:
+            cloud.login(password)
+            cloud.sync()
+            print("  ✓ Le Mac est relié à l'espace parents.")
             return
-        set_secret("telegram", token)
-    tg = Telegram(token)
-    print("\n  Maintenant, CHAQUE PARENT ouvre le bot sur son téléphone et lui envoie « /start ».")
-    print("  J'attends 2 minutes (Entrée ou Ctrl+C pour arrêter plus tôt)…")
-    offset, found = 0, {}
-    deadline = time.time() + 120
-    try:
-        while time.time() < deadline and len(found) < 2:
-            for upd in tg.updates(offset, timeout=10):
-                offset = upd["update_id"] + 1
-                user = (upd.get("message") or {}).get("from")
-                if user and user["id"] not in found:
-                    found[user["id"]] = user.get("first_name", "Parent")
-                    print(f"  → reçu : {found[user['id']]} (id {user['id']})")
-    except KeyboardInterrupt:
-        pass
-    if offset:
-        tg.updates(offset, timeout=0)  # marque ces messages comme lus
-    for uid, name in found.items():
-        if ask(f"  Autoriser {name} comme parent ? (O/n)", "o").lower() != "n":
-            if uid not in cfg.parent_ids:
-                cfg.parent_ids.append(uid)
-            cfg.parent_names[str(uid)] = ask(f"  Comment l'appeler dans les rapports", name)
-            tg.send(uid, "✅ Vous êtes enregistré comme parent sur Jarvis Junior. "
-                         "Envoyez-moi une photo des devoirs quand vous voulez !")
-    print(f"  Parents enregistrés : {', '.join(cfg.parent_names.values()) or 'aucun'}")
+        except CloudError as exc:
+            print(f"  ✗ {exc}")
+    print("  Connexion impossible pour l'instant : relancez « python -m junior setup » plus tard.")
 
 
 def step_children(cfg: Config) -> None:
@@ -109,8 +94,9 @@ def run() -> None:
     print("=== Configuration de Jarvis Junior ===")
     cfg = Config.load()
     step_api_key()
-    step_telegram(cfg)
     step_children(cfg)
+    cfg.save()
+    step_cloud(cfg)
     step_voice(cfg)
     cfg.save()
     print("\n✓ Configuration terminée.")

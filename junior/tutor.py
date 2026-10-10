@@ -278,5 +278,5 @@ class TutorSession:
         relevant = [h for h in items if h["id"] in tonight_ids or h["status"] != TODO]
         self.report = build_report(self.child, self.minutes(), relevant, summary, difficulties, to_review, finished)
         self.ended = True
-        sent = send_report(self.cfg, self.store, self.child, self.report)
-        self.ui.event("ended", report=self.report, parents_notified=sent)
+        queued = send_report(self.cfg, self.store, self.child, self.report)
+        self.ui.event("ended", report=self.report, parents_notified=queued)
